@@ -1,6 +1,7 @@
 """Switch entities for cruise, half-pipe circulation, and pressurize functions."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -41,9 +42,12 @@ class AilinkBaseSwitch(CoordinatorEntity, SwitchEntity):
     def __init__(self, coordinator: AilinkDataUpdateCoordinator, device_id: str) -> None:
         super().__init__(coordinator)
         self._device_id = device_id
-        statuses = coordinator.data.get("device_statuses", {})
-        self._raw: dict = statuses.get(device_id, {})
         self._attr_unique_id = f"ailink_{device_id}_{self._key}"
+
+    @property
+    def _raw(self) -> dict:
+        statuses = self.coordinator.data.get("device_statuses", {})
+        return statuses.get(self._device_id, {})
 
     @property
     def is_on(self) -> bool:
@@ -57,9 +61,12 @@ class AilinkBaseSwitch(CoordinatorEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         await self._send_command(True)
+        # 指令下发后立即刷新，避免界面等下一轮轮询
+        await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         await self._send_command(False)
+        await self.coordinator.async_request_refresh()
 
     async def _send_command(self, on: bool) -> None:
         """Override in subclass."""

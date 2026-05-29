@@ -204,6 +204,7 @@ class AilinkWaterHeater(CoordinatorEntity, WaterHeaterEntity):
             return
         temp_int = int(round(float(temp)))
         await self.coordinator.api.set_temperature(self._device_id, temp_int)
+        await self.coordinator.async_request_refresh()
 
     async def async_set_operation_mode(self, operation_mode: str) -> None:
         """Set operation mode."""
@@ -211,11 +212,14 @@ class AilinkWaterHeater(CoordinatorEntity, WaterHeaterEntity):
             await self.coordinator.api.set_power(self._device_id, False)
         else:
             await self.coordinator.api.set_power(self._device_id, True)
+        await self.coordinator.async_request_refresh()
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn on."""
         await self.coordinator.api.set_power(self._device_id, True)
+        await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off."""
         await self.coordinator.api.set_power(self._device_id, False)
+        await self.coordinator.async_request_refresh()

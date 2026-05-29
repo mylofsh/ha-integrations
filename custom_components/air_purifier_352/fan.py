@@ -118,9 +118,11 @@ class Ailink352Fan(CoordinatorEntity, FanEntity):
         if preset_mode:
             items["WorkMode"] = MODE_REVERSE.get(preset_mode, 0)
         await self.coordinator.api.set_properties(self._iot_id, items)
+        await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs):
         await self.coordinator.api.set_properties(self._iot_id, {"PowerSwitch": 0})
+        await self.coordinator.async_request_refresh()
 
     async def async_set_percentage(self, percentage: int):
         speed = int(round(percentage_to_ranged_value(SPEED_RANGE, percentage)))
@@ -128,7 +130,9 @@ class Ailink352Fan(CoordinatorEntity, FanEntity):
         if self._raw.get("PowerSwitch") != 1:
             items["PowerSwitch"] = 1
         await self.coordinator.api.set_properties(self._iot_id, items)
+        await self.coordinator.async_request_refresh()
 
     async def async_set_preset_mode(self, preset_mode: str):
         mode = MODE_REVERSE.get(preset_mode, 0)
         await self.coordinator.api.set_properties(self._iot_id, {"WorkMode": mode})
+        await self.coordinator.async_request_refresh()

@@ -74,6 +74,8 @@ class Ailink352Switch(CoordinatorEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         await self.coordinator.api.set_properties(self._iot_id, {self._key: 1})
+        await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         await self.coordinator.api.set_properties(self._iot_id, {self._key: 0})
+        await self.coordinator.async_request_refresh()
