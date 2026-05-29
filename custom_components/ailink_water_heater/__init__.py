@@ -17,7 +17,7 @@ from .const import DOMAIN, DEFAULT_SCAN_INTERVAL, CONF_TOKEN, CONF_USER_ID, CONF
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["water_heater", "switch", "sensor"]
+PLATFORMS = ["water_heater", "switch", "sensor", "number"]
 
 
 class AilinkDataUpdateCoordinator(DataUpdateCoordinator):

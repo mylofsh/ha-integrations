@@ -1,4 +1,4 @@
-"""Switch entities for cruise and pressurize functions."""
+"""Switch entities for cruise, half-pipe circulation, and pressurize functions."""
 from __future__ import annotations
 
 import logging
@@ -28,6 +28,7 @@ async def async_setup_entry(
     for device in coordinator.data.get("devices", []):
         device_id = device["deviceId"]
         entities.append(AilinkCruiseSwitch(coordinator, device_id))
+        entities.append(AilinkHalfPipeCircleSwitch(coordinator, device_id))
         entities.append(AilinkPressurizeSwitch(coordinator, device_id))
     async_add_entities(entities)
 
@@ -36,7 +37,6 @@ class AilinkBaseSwitch(CoordinatorEntity, SwitchEntity):
     """Base switch for AI-LiNK functions."""
 
     _key: str = ""
-    _service: str = ""
 
     def __init__(self, coordinator: AilinkDataUpdateCoordinator, device_id: str) -> None:
         super().__init__(coordinator)
@@ -70,7 +70,6 @@ class AilinkCruiseSwitch(AilinkBaseSwitch):
     """Switch for zero-cold-water cruise mode."""
 
     _key = "cruiseStatus"
-    _service = "WaterCruiseOnOff"
 
     _attr_name = "零冷水巡航"
     _attr_icon = "mdi:water-sync"
@@ -79,11 +78,28 @@ class AilinkCruiseSwitch(AilinkBaseSwitch):
         await self.coordinator.api.set_cruise(self._device_id, on)
 
 
+class AilinkHalfPipeCircleSwitch(AilinkBaseSwitch):
+    """Switch for energy-saving half-pipe circulation."""
+
+    _key = "halfPipeCirclelStatus"
+
+    _attr_name = "节能半管零冷水"
+    _attr_icon = "mdi:pipe"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "half_pipe_circle_show": self._raw.get("halfPipeCirculShow", "0"),
+        }
+
+    async def _send_command(self, on: bool) -> None:
+        await self.coordinator.api.set_half_pipe_circle(self._device_id, on)
+
+
 class AilinkPressurizeSwitch(AilinkBaseSwitch):
     """Switch for pressurize function."""
 
     _key = "pressurize"
-    _service = "PressurizeOnOff"
 
     _attr_name = "增压"
     _attr_icon = "mdi:water-booster"

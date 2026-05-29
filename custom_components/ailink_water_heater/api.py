@@ -142,6 +142,22 @@ class AilinkApiClient:
             {"cruiseStatus": "1" if on else "0"},
         )
 
+    async def set_cruise_timer(self, device_id: str, minutes: int) -> dict:
+        """Set one-key cruise timer duration (minutes)."""
+        return await self.invoke_method(
+            device_id, "19", "JSQ48-SJS",
+            "WaterCruiseTimer",
+            {"WaterCruiseTimer": str(minutes)},
+        )
+
+    async def set_half_pipe_circle(self, device_id: str, on: bool) -> dict:
+        """Turn energy-saving half-pipe circulation on/off."""
+        return await self.invoke_method(
+            device_id, "19", "JSQ48-SJS",
+            "setHalfPipeCircle",
+            {"setHalfPipeCircle": "1" if on else "0"},
+        )
+
     async def set_pressurize(self, device_id: str, on: bool) -> dict:
         return await self.invoke_method(
             device_id, "19", "JSQ48-SJS",
