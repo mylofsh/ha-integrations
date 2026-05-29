@@ -33,8 +33,8 @@ async def async_setup_entry(
 
 class AilinkBaseSwitch(SwitchEntity):
     """
-    Switch that optimistically toggles UI immediately via _attr_is_on,
-    then syncs from coordinator on next poll.
+    Switch that optimistically toggles immediately via _attr_is_on.
+    Command is sent asynchronously so HA can process the state change first.
     """
 
     _key: str = ""
@@ -72,24 +72,24 @@ class AilinkBaseSwitch(SwitchEntity):
     async def async_turn_on(self, **kwargs: Any) -> None:
         self._attr_is_on = True
         self.async_write_ha_state()
-        try:
-            await self._send_command(True)
-        except Exception:
-            self._attr_is_on = False
-            self.async_write_ha_state()
-            raise
-        await self._coordinator.async_request_refresh()
+        self._schedule_cmd(True)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         self._attr_is_on = False
         self.async_write_ha_state()
-        try:
-            await self._send_command(False)
-        except Exception:
-            self._attr_is_on = True
-            self.async_write_ha_state()
-            raise
-        await self._coordinator.async_request_refresh()
+        self._schedule_cmd(False)
+
+    def _schedule_cmd(self, on: bool) -> None:
+        """Schedule command as background task so HA updates UI immediately."""
+        async def _do():
+            try:
+                await self._send_command(on)
+            except Exception:
+                self._attr_is_on = not on
+                self.async_write_ha_state()
+                raise
+            await self._coordinator.async_request_refresh()
+        self.hass.async_create_task(_do())
 
     async def _send_command(self, on: bool) -> None:
         raise NotImplementedError
