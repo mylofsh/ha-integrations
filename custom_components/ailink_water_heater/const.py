@@ -10,7 +10,7 @@ CONF_FAMILY_ID = "family_id"
 CONF_REFRESH_TOKEN = "refresh_token"
 
 # 轮询
-DEFAULT_SCAN_INTERVAL = 30  # 秒
+DEFAULT_SCAN_INTERVAL = 60  # 秒
 
 # API 端点
 API_LOGIN = "/AiLinkService/user/login"  # 需要逆向确认
