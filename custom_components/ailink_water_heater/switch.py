@@ -1,7 +1,6 @@
 """Switch entities for cruise, half-pipe circulation, and pressurize functions."""
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Any
 
@@ -33,31 +32,22 @@ async def async_setup_entry(
 
 
 class AilinkBaseSwitch(SwitchEntity):
-    """Base switch with optimistic update and manual coordinator sync."""
+    """
+    Switch that optimistically toggles UI immediately via _attr_is_on,
+    then syncs from coordinator on next poll.
+    """
 
     _key: str = ""
-    _optimistic: bool | None = None
     _attr_should_poll = False
+    _attr_assumed_state = True
 
     def __init__(self, coordinator: AilinkDataUpdateCoordinator, device_id: str) -> None:
         self._coordinator = coordinator
         self._device_id = device_id
         self._attr_unique_id = f"ailink_{device_id}_{self._key}"
-
-    @property
-    def assumed_state(self) -> bool:
-        return True
-
-    @property
-    def _raw(self) -> dict:
-        statuses = self._coordinator.data.get("device_statuses", {})
-        return statuses.get(self._device_id, {})
-
-    @property
-    def is_on(self) -> bool:
-        if self._optimistic is not None:
-            return self._optimistic
-        return self._raw.get(self._key, "0") == "1"
+        statuses = coordinator.data.get("device_statuses", {})
+        raw = statuses.get(device_id, {})
+        self._attr_is_on = raw.get(self._key, "0") == "1"
 
     @property
     def available(self) -> bool:
@@ -68,37 +58,35 @@ class AilinkBaseSwitch(SwitchEntity):
         return {"identifiers": {(DOMAIN, self._device_id)}}
 
     async def async_added_to_hass(self) -> None:
-        """Subscribe to coordinator updates."""
         self.async_on_remove(
             self._coordinator.async_add_listener(self._on_coordinator_update)
         )
 
     @callback
     def _on_coordinator_update(self) -> None:
-        """Handle data update from coordinator."""
-        self._optimistic = None
+        statuses = self._coordinator.data.get("device_statuses", {})
+        raw = statuses.get(self._device_id, {})
+        self._attr_is_on = raw.get(self._key, "0") == "1"
         self.async_write_ha_state()
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        self._optimistic = True
+        self._attr_is_on = True
         self.async_write_ha_state()
-        await asyncio.sleep(0)
         try:
             await self._send_command(True)
         except Exception:
-            self._optimistic = None
+            self._attr_is_on = False
             self.async_write_ha_state()
             raise
         await self._coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        self._optimistic = False
+        self._attr_is_on = False
         self.async_write_ha_state()
-        await asyncio.sleep(0)
         try:
             await self._send_command(False)
         except Exception:
-            self._optimistic = None
+            self._attr_is_on = True
             self.async_write_ha_state()
             raise
         await self._coordinator.async_request_refresh()
@@ -123,7 +111,7 @@ class AilinkHalfPipeCircleSwitch(AilinkBaseSwitch):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return {"half_pipe_circle_show": self._raw.get("halfPipeCirculShow", "0")}
+        return {"half_pipe_circle_show": self._coordinator.data.get("device_statuses", {}).get(self._device_id, {}).get("halfPipeCirculShow", "0")}
 
     async def _send_command(self, on: bool) -> None:
         await self._coordinator.api.set_half_pipe_circle(self._device_id, on)
@@ -136,9 +124,10 @@ class AilinkPressurizeSwitch(AilinkBaseSwitch):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
+        raw = self._coordinator.data.get("device_statuses", {}).get(self._device_id, {})
         return {
-            "pressurize_level": self._raw.get("pressurizeLevel", "0"),
-            "pressurize_level_show": self._raw.get("pressurizeLevelShow", "0"),
+            "pressurize_level": raw.get("pressurizeLevel", "0"),
+            "pressurize_level_show": raw.get("pressurizeLevelShow", "0"),
         }
 
     async def _send_command(self, on: bool) -> None:
