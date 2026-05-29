@@ -85,15 +85,13 @@ class AilinkBaseSwitch(SwitchEntity):
         self.hass.async_create_task(self._send_and_sync(False))
 
     async def _send_and_sync(self, on: bool) -> None:
-        """Send command in background, then refresh."""
+        """Send command in background. No immediate refresh — next poll will sync."""
         try:
             await self._send_command(on)
         except Exception:
-            # 失败回退到服务器状态
             self._attr_is_on = self._raw.get(self._key, "0") == "1"
             self.async_write_ha_state()
             raise
-        await self._coordinator.async_request_refresh()
 
     async def _send_command(self, on: bool) -> None:
         raise NotImplementedError
