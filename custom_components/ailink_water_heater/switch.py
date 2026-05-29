@@ -9,7 +9,6 @@ from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import AilinkDataUpdateCoordinator
 from .const import DOMAIN
@@ -33,14 +32,15 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class AilinkBaseSwitch(CoordinatorEntity, SwitchEntity):
-    """Base switch for AI-LiNK functions — optimistic update."""
+class AilinkBaseSwitch(SwitchEntity):
+    """Base switch with optimistic update and manual coordinator sync."""
 
     _key: str = ""
     _optimistic: bool | None = None
+    _attr_should_poll = False
 
     def __init__(self, coordinator: AilinkDataUpdateCoordinator, device_id: str) -> None:
-        super().__init__(coordinator)
+        self._coordinator = coordinator
         self._device_id = device_id
         self._attr_unique_id = f"ailink_{device_id}_{self._key}"
 
@@ -50,7 +50,7 @@ class AilinkBaseSwitch(CoordinatorEntity, SwitchEntity):
 
     @property
     def _raw(self) -> dict:
-        statuses = self.coordinator.data.get("device_statuses", {})
+        statuses = self._coordinator.data.get("device_statuses", {})
         return statuses.get(self._device_id, {})
 
     @property
@@ -60,20 +60,36 @@ class AilinkBaseSwitch(CoordinatorEntity, SwitchEntity):
         return self._raw.get(self._key, "0") == "1"
 
     @property
+    def available(self) -> bool:
+        return self._coordinator.last_update_success
+
+    @property
     def device_info(self):
         return {"identifiers": {(DOMAIN, self._device_id)}}
+
+    async def async_added_to_hass(self) -> None:
+        """Subscribe to coordinator updates."""
+        self.async_on_remove(
+            self._coordinator.async_add_listener(self._on_coordinator_update)
+        )
+
+    @callback
+    def _on_coordinator_update(self) -> None:
+        """Handle data update from coordinator."""
+        self._optimistic = None
+        self.async_write_ha_state()
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         self._optimistic = True
         self.async_write_ha_state()
-        await asyncio.sleep(0)  # yield event loop to let HA process the state change
+        await asyncio.sleep(0)
         try:
             await self._send_command(True)
         except Exception:
             self._optimistic = None
             self.async_write_ha_state()
             raise
-        await self.coordinator.async_request_refresh()
+        await self._coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         self._optimistic = False
@@ -85,13 +101,7 @@ class AilinkBaseSwitch(CoordinatorEntity, SwitchEntity):
             self._optimistic = None
             self.async_write_ha_state()
             raise
-        await self.coordinator.async_request_refresh()
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Clear optimistic state when coordinator refreshes."""
-        self._optimistic = None
-        super()._handle_coordinator_update()
+        await self._coordinator.async_request_refresh()
 
     async def _send_command(self, on: bool) -> None:
         raise NotImplementedError
@@ -103,7 +113,7 @@ class AilinkCruiseSwitch(AilinkBaseSwitch):
     _attr_icon = "mdi:water-sync"
 
     async def _send_command(self, on: bool) -> None:
-        await self.coordinator.api.set_cruise(self._device_id, on)
+        await self._coordinator.api.set_cruise(self._device_id, on)
 
 
 class AilinkHalfPipeCircleSwitch(AilinkBaseSwitch):
@@ -116,7 +126,7 @@ class AilinkHalfPipeCircleSwitch(AilinkBaseSwitch):
         return {"half_pipe_circle_show": self._raw.get("halfPipeCirculShow", "0")}
 
     async def _send_command(self, on: bool) -> None:
-        await self.coordinator.api.set_half_pipe_circle(self._device_id, on)
+        await self._coordinator.api.set_half_pipe_circle(self._device_id, on)
 
 
 class AilinkPressurizeSwitch(AilinkBaseSwitch):
@@ -132,4 +142,4 @@ class AilinkPressurizeSwitch(AilinkBaseSwitch):
         }
 
     async def _send_command(self, on: bool) -> None:
-        await self.coordinator.api.set_pressurize(self._device_id, on)
+        await self._coordinator.api.set_pressurize(self._device_id, on)
