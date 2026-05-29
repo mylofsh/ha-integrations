@@ -1,44 +1,53 @@
-# AI-LiNK 水 heater Home Assistant 集成
+# A.O.史密斯 & 352 智能家居 Home Assistant 集成
 
-基于 A.O.史密斯 AI-LiNK 智慧家 App (v2.3.2) 抓包分析实现的 HA custom component。
+包含两个集成：
 
-## 获取配置信息
+## 1. AI-LiNK Water Heater（燃气热水器）
 
-需要从 Stream 抓包中获取三个值：
+适配 A.O.史密斯 JSQ48-SJS 等 AI-LiNK 智慧家系列燃气热水器。
 
-1. **Token**: 任意请求 header 中 `Authorization: Bearer ` 后面的完整 JWT
-2. **UserId**: 请求 body 中的 `userId`
-3. **FamilyId**: 请求 body 中的 `familyId`
+**获取配置：** Stream 抓包 App，取任意请求的 `Authorization: Bearer xxx`（Token）、`userId`、`familyId`。
 
-Token 长期有效，无需定期刷新。
+### 实体
+
+| 类型 | 实体 | 说明 |
+|---|---|---|
+| water_heater | 热水器 | 开关机、设定温度 35-60℃、出水温度 |
+| switch | 零冷水巡航 | 一键循环预热 |
+| switch | 节能半管零冷水 | 半管循环节能模式 |
+| switch | 增压 | 水压增强 |
+| number | 一键零冷水时长 | 1-120 分钟 |
+| sensor × 12 | 温度/流量/统计 | 进出水温、水流量、风机转速、点火次数、累计用气/用水、CO浓度等 |
+
+---
+
+## 2. 352 Air Purifier（空气净化器）
+
+适配 352 Z90 等走阿里云 IoT 平台的空气净化器。
+
+**获取配置：**  
+抓包 352Life App，需要两个 Token：
+- **352 access_token**: 请求 header `Authorization: Token xxx` 中的值
+- **aliyun iot_token**: 请求 body 中的 `iotToken` 字段
+
+⚠️ `iot_token` 有效期约 20 小时，过期需重新抓包。
+
+### 实体
+
+| 类型 | 实体 | 说明 |
+|---|---|---|
+| fan | 空气净化器 | 开关、5 档风速、自动/手动/睡眠模式 |
+| switch × 6 | UV LED/等离子/童锁/智能/传感器 | 各功能开关 |
+| sensor × 14 | PM2.5/PM10/甲醛/TVOC/温湿度/滤芯 | 空气质量监测 |
+
+---
 
 ## 安装
 
-1. 复制 `custom_components/ailink_water_heater` 到 HA 的 `custom_components` 目录
+> HACS 自定义存储库：`https://github.com/mylofsh/ha-ailink-water-heater`，类别选「集成」
+
+或手动安装：
+
+1. 复制 `custom_components/ailink_water_heater` 和 `custom_components/air_purifier_352` 到 HA 的 `custom_components` 目录
 2. 重启 Home Assistant
-3. 在"设置 → 设备与服务 → 添加集成"中搜索 "AI-LiNK"
-4. 填入上述三个值
-
-## 提供的实体
-
-### water_heater
-- 开关机、设定温度 (35-60℃)
-- 当前出水温度、运行状态（待机/燃烧/关机）
-- 全量属性：故障码、防冻、增压档位、燃烧统计等 50+ 字段
-
-### switch
-- 零冷水巡航 开关
-- 增压 开关（含增压档位属性）
-
-### sensor (12个)
-- 出水温度、进水温度
-- 水流量、风机转速
-- 点火次数、累计运行时间
-- 累计用气量、累计用水量
-- 巡航累计用气
-- CO 浓度、中和器寿命、滤芯剩余天数
-
-## 注意事项
-
-- `encode` 值从抓包中提取，与账号绑定。如果服务端更新了 encode 算法或换了账号，需要重新抓包更新 `api.py` 中的 `ENCODE_MAP`
-- sign 签名先用 md5data 代替，如果服务端做严格校验可能需要逆向完整签名算法
+3. 「设置 → 设备与服务 → 添加集成」搜索 **AI-LiNK** 或 **352 Air Purifier**
