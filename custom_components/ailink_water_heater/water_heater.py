@@ -90,6 +90,13 @@ class AilinkWaterHeater(CoordinatorEntity, WaterHeaterEntity):
         room_name = device_info.get("roomName", "")
         self._attr_name = f"{product_name} {room_name}" if room_name else product_name
         self._attr_unique_id = f"ailink_{self._device_id}"
+        # 设备产品图片
+        self._product_img = device_info.get("productImg", "")
+
+    @property
+    def entity_picture(self) -> str | None:
+        """Return entity picture URL."""
+        return self._product_img or None
 
     @property
     def device_info(self):
