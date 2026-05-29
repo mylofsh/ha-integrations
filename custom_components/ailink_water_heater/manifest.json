@@ -1,0 +1,11 @@
+{
+  "domain": "ailink_water_heater",
+  "name": "AI-LiNK Water Heater",
+  "codeowners": ["@you"],
+  "config_flow": true,
+  "documentation": "https://github.com/your/ailink_water_heater",
+  "iot_class": "cloud_polling",
+  "version": "1.0.0",
+  "requirements": ["aiohttp"],
+  "dependencies": []
+}

@@ -1,0 +1,9 @@
+{
+  "ailink_water_heater": {
+    "version": "1.0.0",
+    "local_location": "/custom_components/ailink_water_heater",
+    "remote_location": "https://github.com/your/ailink_water_heater",
+    "visit_repo": "https://github.com/your/ailink_water_heater",
+    "changelog": "https://github.com/your/ailink_water_heater/releases/latest"
+  }
+}
