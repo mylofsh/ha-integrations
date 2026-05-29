@@ -11,7 +11,7 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import AilinkApiClient
-from .const import BASE_URL, DOMAIN
+from .const import DOMAIN
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
@@ -35,11 +35,9 @@ class AilinkConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             try:
-                # 用提供的 token 尝试获取首页数据来验证
                 session = async_get_clientsession(self.hass)
                 api = AilinkApiClient(
                     session=session,
-                    base_url=BASE_URL,
                     token=user_input["token"],
                     user_id=user_input["user_id"],
                     family_id=user_input["family_id"],
@@ -59,16 +57,11 @@ class AilinkConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         },
                     )
                 errors["base"] = "auth_failed"
-            except Exception as e:
+            except Exception:
                 errors["base"] = "unknown"
 
         return self.async_show_form(
             step_id="user",
             data_schema=STEP_USER_DATA_SCHEMA,
             errors=errors,
-            description_placeholders={
-                "token_hint": "从抓包中获取 Authorization: Bearer 后面的值",
-                "user_id_hint": "抓包 body 中的 userId",
-                "family_id_hint": "抓包 body 中的 familyId",
-            },
         )
