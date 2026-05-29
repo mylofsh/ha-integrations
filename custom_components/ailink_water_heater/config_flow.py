@@ -6,18 +6,22 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import AilinkApiClient
-from .const import DOMAIN
+from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required("token"): str,
         vol.Required("user_id"): str,
         vol.Required("family_id"): str,
+        vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.All(
+            vol.Coerce(int), vol.Range(min=10, max=600)
+        ),
     }
 )
 
@@ -54,6 +58,7 @@ class AilinkConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             "token": user_input["token"],
                             "user_id": user_input["user_id"],
                             "family_id": user_input["family_id"],
+                            CONF_SCAN_INTERVAL: user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
                         },
                     )
                 errors["base"] = "auth_failed"
