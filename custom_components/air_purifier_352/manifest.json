@@ -1,0 +1,11 @@
+{
+  "domain": "air_purifier_352",
+  "name": "352 Air Purifier",
+  "codeowners": ["@mylofsh"],
+  "config_flow": true,
+  "documentation": "https://github.com/mylofsh/ha-ailink-water-heater",
+  "iot_class": "cloud_polling",
+  "version": "1.0.0",
+  "requirements": ["aiohttp"],
+  "dependencies": []
+}
