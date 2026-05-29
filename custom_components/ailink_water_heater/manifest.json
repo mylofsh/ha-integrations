@@ -1,11 +1,11 @@
 {
   "domain": "ailink_water_heater",
   "name": "AI-LiNK Water Heater",
-  "codeowners": ["@you"],
+  "codeowners": ["@mylofsh"],
   "config_flow": true,
-  "documentation": "https://github.com/your/ailink_water_heater",
+  "documentation": "https://github.com/mylofsh/ha-ailink-water-heater",
   "iot_class": "cloud_polling",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "requirements": ["aiohttp"],
   "dependencies": []
 }
