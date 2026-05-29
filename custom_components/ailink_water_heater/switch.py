@@ -32,7 +32,7 @@ async def async_setup_entry(
 
 
 class AilinkBaseSwitch(SwitchEntity):
-    """Switch: click → immediately shows new state → syncs from server on next poll."""
+    """Switch that optimistically toggles UI on click, syncs from coordinator."""
 
     _key: str = ""
 
@@ -42,20 +42,26 @@ class AilinkBaseSwitch(SwitchEntity):
         self._attr_unique_id = f"ailink_{device_id}_{self._key}"
         statuses = coordinator.data.get("device_statuses", {})
         raw = statuses.get(device_id, {})
-        self._attr_is_on = raw.get(self._key, "0") == "1"
+        self._hs_is_on = raw.get(self._key, "0") == "1"
 
     @property
     def _raw(self) -> dict:
         statuses = self._coordinator.data.get("device_statuses", {})
         return statuses.get(self._device_id, {})
 
+    # 不用 _attr_is_on，直接用 is_on property — 让 HA 每次都动态读取
     @property
-    def available(self) -> bool:
-        return self._coordinator.last_update_success
+    def is_on(self) -> bool:
+        _LOGGER.debug("is_on called, _hs_is_on=%s", self._hs_is_on)
+        return self._hs_is_on
 
     @property
     def should_poll(self) -> bool:
         return False
+
+    @property
+    def available(self) -> bool:
+        return self._coordinator.last_update_success
 
     @property
     def device_info(self):
@@ -68,28 +74,25 @@ class AilinkBaseSwitch(SwitchEntity):
 
     @callback
     def _on_coordinator_update(self) -> None:
-        """Sync actual state from server on next poll."""
-        self._attr_is_on = self._raw.get(self._key, "0") == "1"
+        self._hs_is_on = self._raw.get(self._key, "0") == "1"
+        _LOGGER.debug("coordinator_update: %s → %s", self._key, self._hs_is_on)
         self.async_write_ha_state()
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        # 立即乐观更新
-        self._attr_is_on = True
+        self._hs_is_on = True
         self.async_write_ha_state()
-        # 后台发指令
         self.hass.async_create_task(self._send_and_sync(True))
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        self._attr_is_on = False
+        self._hs_is_on = False
         self.async_write_ha_state()
         self.hass.async_create_task(self._send_and_sync(False))
 
     async def _send_and_sync(self, on: bool) -> None:
-        """Send command in background. No immediate refresh — next poll will sync."""
         try:
             await self._send_command(on)
         except Exception:
-            self._attr_is_on = self._raw.get(self._key, "0") == "1"
+            self._hs_is_on = self._raw.get(self._key, "0") == "1"
             self.async_write_ha_state()
             raise
 
