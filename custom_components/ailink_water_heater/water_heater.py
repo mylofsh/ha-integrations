@@ -1,6 +1,7 @@
 """Water Heater entity for AI-LiNK gas water heater."""
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Any
@@ -18,11 +19,8 @@ from homeassistant.const import (
     PRECISION_WHOLE,
     UnitOfTemperature,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
-)
 
 from . import AilinkDataUpdateCoordinator
 from .const import DOMAIN
@@ -43,16 +41,14 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up AI-LiNK water heater from config entry."""
     coordinator: AilinkDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-
     entities = []
     for device in coordinator.data.get("devices", []):
         entities.append(AilinkWaterHeater(coordinator, device))
     async_add_entities(entities)
 
 
-class AilinkWaterHeater(CoordinatorEntity, WaterHeaterEntity):
+class AilinkWaterHeater(WaterHeaterEntity):
     """Representation of an AI-LiNK gas water heater."""
 
     _attr_supported_features = (
@@ -64,10 +60,10 @@ class AilinkWaterHeater(CoordinatorEntity, WaterHeaterEntity):
     _attr_precision = PRECISION_WHOLE
     _attr_min_temp = 35
     _attr_max_temp = 60
+    _attr_should_poll = False
 
     def __init__(self, coordinator: AilinkDataUpdateCoordinator, device_info: dict) -> None:
-        """Initialize."""
-        super().__init__(coordinator)
+        self._coordinator = coordinator
         self._device_info = device_info
         self._device_id = device_info["deviceId"]
         product_name = device_info.get("productName", "热水器")
@@ -75,9 +71,23 @@ class AilinkWaterHeater(CoordinatorEntity, WaterHeaterEntity):
         self._attr_name = f"{product_name} {room_name}" if room_name else product_name
         self._attr_unique_id = f"ailink_{self._device_id}"
         self._product_img = device_info.get("productImg", "")
-        # 乐观状态
         self._optimistic_power: bool | None = None
         self._optimistic_temp: float | None = None
+
+    async def async_added_to_hass(self) -> None:
+        self.async_on_remove(
+            self._coordinator.async_add_listener(self._on_coordinator_update)
+        )
+
+    @callback
+    def _on_coordinator_update(self) -> None:
+        self._optimistic_power = None
+        self._optimistic_temp = None
+        self.async_write_ha_state()
+
+    @property
+    def available(self) -> bool:
+        return self._coordinator.last_update_success
 
     @property
     def entity_picture(self) -> str | None:
@@ -95,7 +105,7 @@ class AilinkWaterHeater(CoordinatorEntity, WaterHeaterEntity):
 
     @property
     def _raw_status(self) -> dict:
-        statuses = self.coordinator.data.get("device_statuses", {})
+        statuses = self._coordinator.data.get("device_statuses", {})
         return statuses.get(self._device_id, {})
 
     @property
@@ -123,9 +133,7 @@ class AilinkWaterHeater(CoordinatorEntity, WaterHeaterEntity):
     @property
     def current_operation(self) -> str:
         if self._optimistic_power is not None:
-            if not self._optimistic_power:
-                return STATE_OFF
-            return STATE_ELECTRIC
+            return STATE_ELECTRIC if self._optimistic_power else STATE_OFF
         power = self._raw_status.get("powerStatus", "0")
         if power == "0":
             return STATE_OFF
@@ -166,12 +174,6 @@ class AilinkWaterHeater(CoordinatorEntity, WaterHeaterEntity):
         }
         return error_map.get(code, f"未知故障({code})")
 
-    def _handle_coordinator_update(self) -> None:
-        """Clear optimistic state when coordinator refreshes."""
-        self._optimistic_power = None
-        self._optimistic_temp = None
-        super()._handle_coordinator_update()
-
     async def async_set_temperature(self, **kwargs: Any) -> None:
         temp = kwargs.get(ATTR_TEMPERATURE)
         if temp is None:
@@ -179,19 +181,17 @@ class AilinkWaterHeater(CoordinatorEntity, WaterHeaterEntity):
         temp_int = int(round(float(temp)))
         self._optimistic_temp = float(temp_int)
         self.async_write_ha_state()
+        await asyncio.sleep(0)
         try:
-            await self.coordinator.api.set_temperature(self._device_id, temp_int)
+            await self._coordinator.api.set_temperature(self._device_id, temp_int)
         except Exception:
             self._optimistic_temp = None
             self.async_write_ha_state()
             raise
-        await self.coordinator.async_request_refresh()
+        await self._coordinator.async_request_refresh()
 
     async def async_set_operation_mode(self, operation_mode: str) -> None:
-        if operation_mode == STATE_OFF:
-            await self._set_power(False)
-        else:
-            await self._set_power(True)
+        await self._set_power(operation_mode != STATE_OFF)
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         await self._set_power(True)
@@ -202,10 +202,11 @@ class AilinkWaterHeater(CoordinatorEntity, WaterHeaterEntity):
     async def _set_power(self, on: bool) -> None:
         self._optimistic_power = on
         self.async_write_ha_state()
+        await asyncio.sleep(0)
         try:
-            await self.coordinator.api.set_power(self._device_id, on)
+            await self._coordinator.api.set_power(self._device_id, on)
         except Exception:
             self._optimistic_power = None
             self.async_write_ha_state()
             raise
-        await self.coordinator.async_request_refresh()
+        await self._coordinator.async_request_refresh()
