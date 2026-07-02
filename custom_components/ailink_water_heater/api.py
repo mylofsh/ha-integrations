@@ -15,11 +15,8 @@ class AilinkApiClient:
     BASE_URL = "https://ailink-api.hotwater.com.cn"
 
     # 每个 API 端点的固定 encode 值（从抓包中提取，与 userId+familyId 绑定）
-    # 如果你换了账号，需要重新抓包获取这些值
     ENCODE_MAP = {
-        "getHomepageV2": "ef32c8cf8842833b27c555532c7659d5",
         "getDeviceCurrInfo": "a9b3377c7c2905f9d1f4a8f62fbb06e3",
-        "getFamilyErrorInfo": "8212801857d157e9c34441dd95ee07b1",
     }
 
     def __init__(
@@ -33,16 +30,12 @@ class AilinkApiClient:
         self._token = token
         self._user_id = user_id
         self._family_id = family_id
+        self._device_id: str | None = None  # 配置后从 config_flow 传入
 
-    def _make_trace_id(self) -> str:
-        """Generate traceId matching App format."""
+    def _headers(self, source: str = "Web") -> dict:
+        """Build common request headers for Web H5 endpoint."""
         ts = str(int(time.time() * 1000))
-        rand_part = str(uuid.uuid4().int % 100000).zfill(5)
-        return f"{ts}-{rand_part}-{self._user_id}-00"
-
-    def _headers(self, source: str = "IOS") -> dict:
-        """Build common request headers."""
-        ts = str(int(time.time() * 1000))
+        nonce = str(uuid.uuid4()).upper()
         return {
             "Host": "ailink-api.hotwater.com.cn",
             "Authorization": f"Bearer {self._token}",
@@ -51,35 +44,30 @@ class AilinkApiClient:
             "familyUk": "",
             "source": source,
             "timestamp": ts,
-            "nonce": str(uuid.uuid4()).upper(),
-            "traceId": self._make_trace_id(),
+            "nonce": nonce,
+            "traceId": f"{ts}-{str(uuid.uuid4().int % 100000).zfill(5)}-0-02",
             "Content-Type": "application/json;charset=UTF-8",
             "Accept": "application/json, text/plain, */*",
             "familyId": self._family_id,
             "userId": self._user_id,
+            "accessToken": "",  # H5 Web 路径所需
+            "Referer": "https://ailink-appservice-h5-prd.hotwater.com.cn/",
+            "Origin": "https://ailink-appservice-h5-prd.hotwater.com.cn",
+            "X-Requested-With": "XMLHttpRequest",
         }
 
-    async def _post(
-        self, path: str, body: dict, source: str = "IOS"
-    ) -> dict:
-        """POST request."""
-        url = f"{self.BASE_URL}{path}"
-        headers = self._headers(source)
-
-        # 服务器在校验 sign 时：不传 sign/md5data → 跳过校验；传了错误 → 拒绝
-        # 所以干脆不传这两个字段
-        async with self._session.post(url, json=body, headers=headers) as resp:
-            return await resp.json()
-
-    async def get_homepage(self) -> dict:
-        """Get homepage V2 — returns device list + status."""
+    async def get_device_curr_info(self, device_id: str) -> dict:
+        """Get current device info — replaces getHomepageV2."""
         body = {
-            "encode": self.ENCODE_MAP["getHomepageV2"],
-            "homePageVersion": "3",
             "userId": self._user_id,
             "familyId": self._family_id,
+            "deviceId": device_id,
+            "encode": self.ENCODE_MAP["getDeviceCurrInfo"],
         }
-        return await self._post("/AiLinkService/appDevice/getHomepageV2", body)
+        url = f"{self.BASE_URL}/AiLinkService/appDevice/getDeviceCurrInfo"
+        headers = self._headers("Web")
+        async with self._session.post(url, json=body, headers=headers) as resp:
+            return await resp.json()
 
     async def invoke_method(
         self,
@@ -89,7 +77,7 @@ class AilinkApiClient:
         identifier: str,
         input_data: dict[str, str],
     ) -> dict:
-        """Send device control command (via Web H5 path, no encode)."""
+        """Send device control command (via Web H5 path)."""
         pay_load = {
             "profile": {
                 "deviceId": device_id,
@@ -104,18 +92,13 @@ class AilinkApiClient:
         body = {
             "userId": self._user_id,
             "familyId": self._family_id,
-            "appSource": 2,       # 2=H5 Web
+            "appSource": 2,
             "commandSource": 1,
             "invokeTime": time.strftime("%Y-%m-%d %H:%M:%S"),
             "payLoad": json.dumps(pay_load, separators=(",", ":")),
         }
-        # H5 Web source 的额外 headers
-        headers = self._headers("Web")
-        headers["Referer"] = "https://ailink-appservice-h5-prd.hotwater.com.cn/"
-        headers["Origin"] = "https://ailink-appservice-h5-prd.hotwater.com.cn"
-        headers["X-Requested-With"] = "XMLHttpRequest"
-
         url = f"{self.BASE_URL}/AiLinkService/device/invokeMethod"
+        headers = self._headers("Web")
         async with self._session.post(url, json=body, headers=headers) as resp:
             return await resp.json()
 
@@ -143,7 +126,6 @@ class AilinkApiClient:
         )
 
     async def set_cruise_timer(self, device_id: str, minutes: int) -> dict:
-        """Set one-key cruise timer duration (minutes)."""
         return await self.invoke_method(
             device_id, "19", "JSQ48-SJS",
             "WaterCruiseTimer",
@@ -151,7 +133,6 @@ class AilinkApiClient:
         )
 
     async def set_half_pipe_circle(self, device_id: str, on: bool) -> dict:
-        """Turn energy-saving half-pipe circulation on/off."""
         return await self.invoke_method(
             device_id, "19", "JSQ48-SJS",
             "setHalfPipeCircle",

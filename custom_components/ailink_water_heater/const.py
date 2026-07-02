@@ -7,6 +7,7 @@ BASE_URL = "https://ailink-api.hotwater.com.cn"
 CONF_TOKEN = "token"
 CONF_USER_ID = "user_id"
 CONF_FAMILY_ID = "family_id"
+CONF_DEVICE_ID = "device_id"
 CONF_REFRESH_TOKEN = "refresh_token"
 
 # 轮询

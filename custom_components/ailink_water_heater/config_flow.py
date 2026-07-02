@@ -19,6 +19,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Required("token"): str,
         vol.Required("user_id"): str,
         vol.Required("family_id"): str,
+        vol.Required("device_id"): str,
         vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.All(
             vol.Coerce(int), vol.Range(min=10, max=600)
         ),
@@ -46,18 +47,16 @@ class AilinkConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     user_id=user_input["user_id"],
                     family_id=user_input["family_id"],
                 )
-                result = await api.get_homepage()
+                # 验证：用 device_id 调 getDeviceCurrInfo 是否成功
+                result = await api.get_device_curr_info(user_input["device_id"])
                 if result.get("status") == 200:
-                    devices = result.get("info", {}).get("devInfoItemInfoList", [])
-                    device_names = [d.get("productName", d.get("deviceId", "")) for d in devices]
-                    title = "AI-LiNK " + ", ".join(device_names) if device_names else f"AI-LiNK ({user_input['user_id']})"
-
                     return self.async_create_entry(
-                        title=title,
+                        title=f"AI-LiNK 燃气热水器 ({user_input['device_id']})",
                         data={
                             "token": user_input["token"],
                             "user_id": user_input["user_id"],
                             "family_id": user_input["family_id"],
+                            "device_id": user_input["device_id"],
                             CONF_SCAN_INTERVAL: user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
                         },
                     )
