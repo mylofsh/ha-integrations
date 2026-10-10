@@ -2,6 +2,10 @@
 DOMAIN = "ailink_water_heater"
 
 BASE_URL = "https://ailink-api.hotwater.com.cn"
+HOST = "ailink-api.hotwater.com.cn"
+
+# H5 前端来源（请求头 Referer / Origin）
+H5_ORIGIN = "https://ailink-appservice-h5-prd.hotwater.com.cn"
 
 # 认证
 CONF_TOKEN = "token"

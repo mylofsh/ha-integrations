@@ -1,0 +1,43 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "AI-LiNK 燃气热水器",
+        "description": "填入从抓包或 App 获取的登录凭据。",
+        "data": {
+          "token": "访问令牌 (Token)",
+          "user_id": "用户 ID",
+          "family_id": "家庭 ID",
+          "device_id": "设备 ID",
+          "scan_interval": "轮询间隔（秒）"
+        }
+      }
+    },
+    "error": {
+      "auth_failed": "认证失败：请检查 Token、用户 ID、家庭 ID 与设备 ID 是否正确。",
+      "unknown": "发生未知错误，请查看日志。"
+    },
+    "abort": {
+      "already_configured": "该设备已配置。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "更新凭据",
+        "description": "令牌过期后在此填入新值并保存即可，无需删除重建集成。\n留空表示保持原值不变。\n\n当前设备 ID：{device_id}",
+        "data": {
+          "token": "访问令牌 (Token) — 填入新值以更新",
+          "user_id": "用户 ID",
+          "family_id": "家庭 ID",
+          "device_id": "设备 ID",
+          "scan_interval": "轮询间隔（秒）"
+        }
+      }
+    },
+    "error": {
+      "auth_failed": "认证失败：新凭据校验未通过，请确认 Token 及各项 ID 正确。",
+      "unknown": "发生未知错误，请查看日志。"
+    }
+  }
+}

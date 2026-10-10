@@ -3,7 +3,7 @@
   "name": "AI-LiNK Water Heater",
   "codeowners": ["@mylofsh"],
   "config_flow": true,
-  "documentation": "https://github.com/mylofsh/ha-ailink-water-heater",
+  "documentation": "https://github.com/mylofsh/ha-integrations",
   "iot_class": "cloud_polling",
   "version": "1.0.4",
   "requirements": ["aiohttp"],

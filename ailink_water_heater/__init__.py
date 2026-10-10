@@ -78,18 +78,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up AI-LiNK from a config entry."""
     session = async_get_clientsession(hass)
 
+    # options（手动更新的 token 等）优先于首次添加时写入的 data
+    cfg = {**entry.data, **entry.options}
+
     api = AilinkApiClient(
         session=session,
-        token=entry.data[CONF_TOKEN],
-        user_id=entry.data[CONF_USER_ID],
-        family_id=entry.data[CONF_FAMILY_ID],
+        token=cfg[CONF_TOKEN],
+        user_id=cfg[CONF_USER_ID],
+        family_id=cfg[CONF_FAMILY_ID],
     )
 
-    device_id = entry.data.get(CONF_DEVICE_ID, "")
+    device_id = cfg.get(CONF_DEVICE_ID, "")
 
     coordinator = AilinkDataUpdateCoordinator(
         hass, api, device_id,
-        scan_interval=entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+        scan_interval=cfg.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
     )
     await coordinator.async_config_entry_first_refresh()
 

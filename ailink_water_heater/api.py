@@ -8,11 +8,13 @@ from typing import Any
 
 import aiohttp
 
+from .const import BASE_URL, H5_ORIGIN, HOST
+
 
 class AilinkApiClient:
     """Async API client for AI-LiNK platform."""
 
-    BASE_URL = "https://ailink-api.hotwater.com.cn"
+    BASE_URL = BASE_URL
 
     # 每个 API 端点的固定 encode 值（从抓包中提取，与 userId+familyId 绑定）
     ENCODE_MAP = {
@@ -37,7 +39,7 @@ class AilinkApiClient:
         ts = str(int(time.time() * 1000))
         nonce = str(uuid.uuid4()).upper()
         return {
-            "Host": "ailink-api.hotwater.com.cn",
+            "Host": HOST,
             "Authorization": f"Bearer {self._token}",
             "version": "V1.0.1",
             "UserId": self._user_id,
@@ -51,8 +53,8 @@ class AilinkApiClient:
             "familyId": self._family_id,
             "userId": self._user_id,
             "accessToken": "",  # H5 Web 路径所需
-            "Referer": "https://ailink-appservice-h5-prd.hotwater.com.cn/",
-            "Origin": "https://ailink-appservice-h5-prd.hotwater.com.cn",
+            "Referer": f"{H5_ORIGIN}/",
+            "Origin": H5_ORIGIN,
             "X-Requested-With": "XMLHttpRequest",
         }
 
